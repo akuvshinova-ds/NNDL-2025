@@ -1,1 +1,1 @@
-Web app is available at https://cyber-anastasia.github.io/NNDL-2025/week2/
+Web app is available at https://akuvshinova-ds.github.io/NNDL-2025/week2/
