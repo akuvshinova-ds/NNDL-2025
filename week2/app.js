@@ -186,62 +186,65 @@ function createPreviewTable(data) {
     return table;
 }
 
-// Create visualizations using tfjs-vis
+// Create visualizations using tfjs-vis (fixed)
 function createVisualizations() {
-    const chartsDiv = document.getElementById('charts');
-    chartsDiv.innerHTML = '<h3>Data Visualizations</h3>';
-    
-    // Survival by Sex
-    const survivalBySex = {};
-    trainData.forEach(row => {
-        if (row.Sex && row.Survived !== undefined) {
-            if (!survivalBySex[row.Sex]) {
-                survivalBySex[row.Sex] = { survived: 0, total: 0 };
-            }
-            survivalBySex[row.Sex].total++;
-            if (row.Survived === 1) {
-                survivalBySex[row.Sex].survived++;
-            }
-        }
-    });
-    
-    const sexData = Object.entries(survivalBySex).map(([sex, stats]) => ({
-        sex,
-        survivalRate: (stats.survived / stats.total) * 100
+  if (!trainData || !trainData.length) return;
+
+  // Make sure the tfjs-vis side panel is open and that the "Charts" tab exists
+  tfvis.visor().open();
+
+  const chartsDiv = document.getElementById('charts');
+  chartsDiv.innerHTML = `
+    <h3>Data Visualizations</h3>
+    <p>Charts open in the <strong>tfjs-vis</strong> panel (bottom-right button). You can also click "Open Charts Panel".</p>
+  `;
+
+  // ---- Survival by Sex ----
+  const bySex = {};
+  for (const row of trainData) {
+    const sex = row.Sex;
+    const surv = row.Survived;
+    if (sex == null || surv == null) continue;       // guard against missing
+    if (!bySex[sex]) bySex[sex] = { total: 0, survived: 0 };
+    bySex[sex].total += 1;
+    if (Number(surv) === 1) bySex[sex].survived += 1;
+  }
+
+  const sexBarData = Object.entries(bySex).map(([sex, s]) => ({
+    index: sex,                                // tfjs-vis expects {index, value}
+    value: s.total ? (s.survived / s.total) * 100 : 0
+  }));
+
+  tfvis.render.barchart(
+    { name: 'Survival Rate by Sex', tab: 'Charts' },
+    sexBarData,
+    { xLabel: 'Sex', yLabel: 'Survival Rate (%)', height: 300 }
+  );
+
+  // ---- Survival by Passenger Class ----
+  const byClass = {};
+  for (const row of trainData) {
+    const pclass = row.Pclass;
+    const surv = row.Survived;
+    if (pclass == null || surv == null) continue;
+    if (!byClass[pclass]) byClass[pclass] = { total: 0, survived: 0 };
+    byClass[pclass].total += 1;
+    if (Number(surv) === 1) byClass[pclass].survived += 1;
+  }
+
+  // Sort by class 1,2,3 so bars are ordered
+  const pclassBarData = Object.entries(byClass)
+    .sort((a, b) => Number(a[0]) - Number(b[0]))
+    .map(([pc, s]) => ({
+      index: `Class ${pc}`,
+      value: s.total ? (s.survived / s.total) * 100 : 0
     }));
-    
-    tfvis.render.barchart(
-        { name: 'Survival Rate by Sex', tab: 'Charts' },
-        sexData.map(d => ({ x: d.sex, y: d.survivalRate })),
-        { xLabel: 'Sex', yLabel: 'Survival Rate (%)' }
-    );
-    
-    // Survival by Pclass
-    const survivalByPclass = {};
-    trainData.forEach(row => {
-        if (row.Pclass !== undefined && row.Survived !== undefined) {
-            if (!survivalByPclass[row.Pclass]) {
-                survivalByPclass[row.Pclass] = { survived: 0, total: 0 };
-            }
-            survivalByPclass[row.Pclass].total++;
-            if (row.Survived === 1) {
-                survivalByPclass[row.Pclass].survived++;
-            }
-        }
-    });
-    
-    const pclassData = Object.entries(survivalByPclass).map(([pclass, stats]) => ({
-        pclass: `Class ${pclass}`,
-        survivalRate: (stats.survived / stats.total) * 100
-    }));
-    
-    tfvis.render.barchart(
-        { name: 'Survival Rate by Passenger Class', tab: 'Charts' },
-        pclassData.map(d => ({ x: d.pclass, y: d.survivalRate })),
-        { xLabel: 'Passenger Class', yLabel: 'Survival Rate (%)' }
-    );
-    
-    chartsDiv.innerHTML += '<p>Charts are displayed in the tfjs-vis visor. Click the button in the bottom right to view.</p>';
+
+  tfvis.render.barchart(
+    { name: 'Survival Rate by Passenger Class', tab: 'Charts' },
+    pclassBarData,
+    { xLabel: 'Passenger Class', yLabel: 'Survival Rate (%)', height: 300 }
+  );
 }
 
 // Preprocess the data
