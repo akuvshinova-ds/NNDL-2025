@@ -113,11 +113,14 @@
         </section>
 
         <section id="inspect">
-            <h2>2. Data Inspection</h2>
+          <h2>2. Data Inspection</h2>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button id="inspect-btn" onclick="inspectData()" disabled>Inspect Data</button>
-            <div id="data-preview" class="data-preview"></div>
-            <div id="data-stats"></div>
-            <div id="charts"></div>
+            <button type="button" onclick="tfvis.visor().open()">Open Charts Panel</button>
+          </div>
+          <div id="data-preview" class="data-preview"></div>
+          <div id="data-stats"></div>
+          <div id="charts"></div>
         </section>
 
         <section id="preprocessing">
