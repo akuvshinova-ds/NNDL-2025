@@ -549,13 +549,13 @@ function createModel() {
     try {
         const inputDim = preprocessedTrainData.features.shape[1];
         
-        // Build model architecture
+        // Build model architecture (updated: second layer is 128 instead of 256)
         model = tf.sequential({
             layers: [
                 tf.layers.dense({ inputShape: [inputDim], units: 256, activation: 'relu' }),
                 tf.layers.batchNormalization(),
                 tf.layers.dropout({ rate: 0.1 }),
-                tf.layers.dense({ units: 256, activation: 'relu' }),
+                tf.layers.dense({ units: 128, activation: 'relu' }),
                 tf.layers.batchNormalization(),
                 tf.layers.dropout({ rate: 0.1 }),
                 tf.layers.dense({ units: 2, activation: 'softmax' })
@@ -631,13 +631,13 @@ async function trainModel() {
         
         statusDiv.innerHTML += `<p>Training samples: ${trainFeatures.shape[0]}, Validation samples: ${valFeatures.shape[0]}</p>`;
         
-        // Training configuration
-        const epochs = 120;
-        const batchSize = 64;
+        // Training configuration (updated: 50 epochs, batch size 128)
+        const epochs = 50;
+        const batchSize = 128;
         
-        // Early stopping and learning rate reduction callbacks
-        let bestValAuc = 0;
-        let patience = 10;
+        // Early stopping and learning rate reduction callbacks (updated: patience=5)
+        let bestValLoss = Infinity;
+        let patience = 5;
         let patienceCounter = 0;
         let lrPatienceCounter = 0;
         let currentLr = 0.002714707;
@@ -653,17 +653,17 @@ async function trainModel() {
             onEpochEnd: async (epoch, logs) => {
                 const valLoss = logs.val_loss;
                 
-                // Early stopping logic (using validation loss instead of AUC)
-                if (valLoss < bestValAuc || bestValAuc === 0) {
-                    bestValAuc = valLoss;
+                // Early stopping logic (using validation loss)
+                if (valLoss < bestValLoss) {
+                    bestValLoss = valLoss;
                     patienceCounter = 0;
                     lrPatienceCounter = 0;
                 } else {
                     patienceCounter++;
                     lrPatienceCounter++;
                     
-                    // Reduce learning rate
-                    if (lrPatienceCounter >= 4 && currentLr > minLr) {
+                    // Reduce learning rate (updated: patience=5)
+                    if (lrPatienceCounter >= 5 && currentLr > minLr) {
                         currentLr = Math.max(currentLr * 0.5, minLr);
                         model.optimizer.learningRate = currentLr;
                         lrPatienceCounter = 0;
@@ -691,7 +691,7 @@ async function trainModel() {
         statusDiv.innerHTML = `
             <p class="status-message">
                 <strong>Training completed!</strong><br>
-                Final validation loss: ${bestValAuc.toFixed(4)}<br>
+                Final validation loss: ${bestValLoss.toFixed(4)}<br>
                 Total epochs: ${trainingHistory.epoch.length}
             </p>
         `;
