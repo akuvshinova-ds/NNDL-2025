@@ -6,6 +6,7 @@
     <title>Superstore Response Classifier - TensorFlow.js</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@latest"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="app.js"></script>
     <style>
         body {
@@ -156,12 +157,27 @@
             background: #ffebee;
             border-left: 4px solid #f44336;
         }
+        .plot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .plot-container {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
         @media (max-width: 768px) {
             .metrics-container {
                 flex-direction: column;
             }
             h1 {
                 font-size: 1.8em;
+            }
+            .plot-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -196,6 +212,24 @@
             </div>
             <div id="eda-preview"></div>
             <div id="eda-stats"></div>
+            
+            <h3>Categorical Variables by Source</h3>
+            <div id="plots-cat-by-source" class="plot-grid"></div>
+            
+            <h3>Continuous Variables Distribution by Source</h3>
+            <div id="plots-cont-hist" class="plot-grid"></div>
+            
+            <h3>Continuous Variables Boxplots (Training Data)</h3>
+            <div id="plots-cont-box" class="plot-grid"></div>
+            
+            <h3>Categorical Variables vs Target (Training Data)</h3>
+            <div id="plots-cat-vs-target" class="plot-grid"></div>
+            
+            <h3>Continuous Variables vs Target (Training Data)</h3>
+            <div id="plots-cont-vs-target" class="plot-grid"></div>
+            
+            <h3>Correlation Heatmap (Training Data - Numeric Features)</h3>
+            <div id="plots-corr"></div>
         </section>
 
         <section id="preprocessing">
@@ -224,7 +258,7 @@
                     <li>Dense(256, activation='relu')</li>
                     <li>BatchNormalization()</li>
                     <li>Dropout(0.1)</li>
-                    <li>Dense(256, activation='relu')</li>
+                    <li>Dense(128, activation='relu')</li>
                     <li>BatchNormalization()</li>
                     <li>Dropout(0.1)</li>
                     <li>Dense(2, activation='softmax')</li>
@@ -243,10 +277,10 @@
                 <strong>Training Configuration:</strong>
                 <ul>
                     <li>Train/Validation Split: 80/20 (stratified)</li>
-                    <li>Epochs: 120</li>
-                    <li>Batch Size: 64</li>
-                    <li>Early Stopping: patience=10 on val_loss</li>
-                    <li>Learning Rate Reduction: factor=0.5, patience=4, min_lr=1e-5</li>
+                    <li>Epochs: 50</li>
+                    <li>Batch Size: 128</li>
+                    <li>Early Stopping: patience=5 on val_loss</li>
+                    <li>Learning Rate Reduction: factor=0.5, patience=5, min_lr=1e-5</li>
                 </ul>
             </div>
             <div id="training-status"></div>
