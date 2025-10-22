@@ -206,10 +206,7 @@
 
         <section id="eda">
             <h2>2. Exploratory Data Analysis</h2>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button id="eda-btn" onclick="performEDA()" disabled>Perform EDA</button>
-                <button type="button" onclick="tfvis.visor().open()">Open Charts Panel</button>
-            </div>
+            <button id="eda-btn" onclick="performEDA()" disabled>Perform EDA</button>
             <div id="eda-preview"></div>
             <div id="eda-stats"></div>
             
@@ -272,7 +269,10 @@
 
         <section id="training">
             <h2>5. Training</h2>
-            <button id="train-btn" onclick="trainModel()" disabled>Train Model</button>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button id="train-btn" onclick="trainModel()" disabled>Train Model</button>
+                <button type="button" onclick="tfvis.visor().open()">Open Charts Panel</button>
+            </div>
             <div class="note">
                 <strong>Training Configuration:</strong>
                 <ul>
