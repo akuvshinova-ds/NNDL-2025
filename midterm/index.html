@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superstore Response Classifier - TensorFlow.js</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@latest"></script>
+    <script src="app.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #764ba2;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+            padding: 8px;
+            border: 2px solid #667eea;
+            border-radius: 5px;
+        }
+        .metrics-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .metric-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 8px;
+            min-width: 200px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .slider-container {
+            margin: 15px 0;
+        }
+        .slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+        /* Table scrolling for large datasets */
+        .table-scroll {
+            overflow-x: auto;
+            width: 100%;
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+        table {
+            width: max-content;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            font-size: 13px;
+        }
+        th {
+            background-color: #667eea;
+            color: white;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .note {
+            background-color: #e8eaf6;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #667eea;
+        }
+        .status-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+        }
+        .error-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+        }
+        @media (max-width: 768px) {
+            .metrics-container {
+                flex-direction: column;
+            }
+            h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛒 Superstore Response Classifier</h1>
+        <p style="text-align: center; color: #666; font-size: 1.1em;">
+            Interactive Neural Network Training with TensorFlow.js
+        </p>
+        
+        <section id="data-load">
+            <h2>1. Data Load</h2>
+            <p>Upload the training and test CSV files from the Superstore dataset:</p>
+            <div>
+                <label for="train-file"><strong>Training Data (superstore_train.csv):</strong></label>
+                <input type="file" id="train-file" accept=".csv">
+            </div>
+            <div>
+                <label for="test-file"><strong>Test Data (superstore_test_unlabeled.csv):</strong></label>
+                <input type="file" id="test-file" accept=".csv">
+            </div>
+            <button id="load-data-btn" onclick="loadData()">Load Data</button>
+            <div id="data-status"></div>
+        </section>
+
+        <section id="eda">
+            <h2>2. Exploratory Data Analysis</h2>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button id="eda-btn" onclick="performEDA()" disabled>Perform EDA</button>
+                <button type="button" onclick="tfvis.visor().open()">Open Charts Panel</button>
+            </div>
+            <div id="eda-preview"></div>
+            <div id="eda-stats"></div>
+        </section>
+
+        <section id="preprocessing">
+            <h2>3. Preprocessing</h2>
+            <button id="preprocess-btn" onclick="preprocessData()" disabled>Preprocess Data</button>
+            <div class="note">
+                <strong>Preprocessing Steps:</strong>
+                <ul>
+                    <li><strong>Drop Useless Features:</strong> Remove Dt_Customer, Days_Customer, source columns</li>
+                    <li><strong>Remove Extreme Outliers:</strong> Filter Year_Birth > 1920 and Income < 100,000</li>
+                    <li><strong>Imputation:</strong> SimpleImputer for missing values (median for numeric, most_frequent for categorical)</li>
+                    <li><strong>Scaling:</strong> StandardScaler for numerical features</li>
+                    <li><strong>Encoding:</strong> OneHotEncoder for categorical features (Education, Marital_Status)</li>
+                    <li><strong>Oversampling:</strong> RandomOverSampler to balance training data</li>
+                </ul>
+            </div>
+            <div id="preprocessing-output"></div>
+        </section>
+
+        <section id="model">
+            <h2>4. Model Setup</h2>
+            <button id="create-model-btn" onclick="createModel()" disabled>Create Model</button>
+            <div class="note">
+                <strong>Model Architecture:</strong>
+                <ul>
+                    <li>Dense(256, activation='relu')</li>
+                    <li>BatchNormalization()</li>
+                    <li>Dropout(0.1)</li>
+                    <li>Dense(256, activation='relu')</li>
+                    <li>BatchNormalization()</li>
+                    <li>Dropout(0.1)</li>
+                    <li>Dense(2, activation='softmax')</li>
+                </ul>
+                <strong>Optimizer:</strong> Adam (learning_rate=0.002714707)<br>
+                <strong>Loss:</strong> Categorical Crossentropy (label_smoothing=0.02)<br>
+                <strong>Metrics:</strong> Categorical Accuracy
+            </div>
+            <div id="model-summary"></div>
+        </section>
+
+        <section id="training">
+            <h2>5. Training</h2>
+            <button id="train-btn" onclick="trainModel()" disabled>Train Model</button>
+            <div class="note">
+                <strong>Training Configuration:</strong>
+                <ul>
+                    <li>Train/Validation Split: 80/20 (stratified)</li>
+                    <li>Epochs: 120</li>
+                    <li>Batch Size: 64</li>
+                    <li>Early Stopping: patience=10 on val_loss</li>
+                    <li>Learning Rate Reduction: factor=0.5, patience=4, min_lr=1e-5</li>
+                </ul>
+            </div>
+            <div id="training-status"></div>
+        </section>
+
+        <section id="metrics">
+            <h2>6. Evaluation Metrics</h2>
+            <div class="slider-container">
+                <label for="threshold-slider"><strong>Classification Threshold:</strong></label>
+                <input type="range" id="threshold-slider" class="slider" min="0" max="1" step="0.01" value="0.5" disabled>
+                <span id="threshold-value" style="font-weight: bold; color: #667eea;">0.5</span>
+            </div>
+            <div id="metrics-output" class="metrics-container">
+                <div class="metric-card">
+                    <h3>Confusion Matrix</h3>
+                    <div id="confusion-matrix"></div>
+                </div>
+                <div class="metric-card">
+                    <h3>Performance Metrics</h3>
+                    <div id="performance-metrics"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="prediction">
+            <h2>7. Prediction</h2>
+            <button id="predict-btn" onclick="predict()" disabled>Predict on Test Data</button>
+            <div id="prediction-output"></div>
+        </section>
+
+        <section id="export">
+            <h2>8. Export Results</h2>
+            <button id="export-btn" onclick="exportResults()" disabled>Export Results</button>
+            <div id="export-status"></div>
+        </section>
+
+        <section id="ground-truth">
+            <h2>9. Ground Truth Check</h2>
+            <p>Upload the labeled test data to verify predictions against actual values:</p>
+            <div>
+                <label for="labeled-test-file"><strong>Labeled Test Data (superstore_test_labeled.csv):</strong></label>
+                <input type="file" id="labeled-test-file" accept=".csv">
+            </div>
+            <button id="ground-truth-btn" onclick="checkGroundTruth()" disabled>Load & Check Ground Truth</button>
+            <div id="ground-truth-output"></div>
+        </section>
+
+        <section id="deployment">
+            <h2>Deployment Notes</h2>
+            <div class="note">
+                <p><strong>To deploy this application:</strong></p>
+                <ol>
+                    <li>Create a public GitHub repository</li>
+                    <li>Commit index.html and app.js to the repository</li>
+                    <li>Enable GitHub Pages in repository settings (select main branch and root folder)</li>
+                    <li>Your app will be available at: <code>https://[your-username].github.io/[repository-name]</code></li>
+                    <li>Test the URL to ensure everything works correctly</li>
+                </ol>
+            </div>
+        </section>
+    </div>
+</body>
+</html>
+
