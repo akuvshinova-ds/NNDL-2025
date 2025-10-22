@@ -234,119 +234,528 @@ function performEDA() {
     missingInfo += '</ul>';
     edaDiv.innerHTML += missingInfo;
     
-    // Create visualizations
-    createVisualizations();
+    // Create visualizations using Plotly (in-page)
+    createPlotlyVisualizations();
     
     // Enable preprocessing button
     document.getElementById('preprocess-btn').disabled = false;
 }
 
-// Create visualizations using tfjs-vis
-function createVisualizations() {
-    tfvis.visor().open();
+// ========================================
+// PLOTLY VISUALIZATIONS (IN-PAGE)
+// ========================================
+
+function createPlotlyVisualizations() {
+    // 1. Categorical Variables by Source
+    plotCategoricalBySource();
     
-    // 1. Response distribution
-    const responseData = [
-        { index: 'No Response (0)', value: trainData.filter(r => r.Response === 0).length },
-        { index: 'Response (1)', value: trainData.filter(r => r.Response === 1).length }
-    ];
+    // 2. Continuous Variables Distribution by Source (Histograms)
+    plotContinuousHistogramsBySource();
     
-    tfvis.render.barchart(
-        { name: 'Response Distribution', tab: 'EDA' },
-        responseData,
-        { xLabel: 'Response', yLabel: 'Count', height: 300 }
-    );
+    // 3. Continuous Variables Boxplots (Training Data)
+    plotContinuousBoxplots();
     
-    // 2. Response by Education
-    const byEducation = {};
-    trainData.forEach(row => {
-        const edu = row.Education;
-        const resp = row.Response;
-        if (edu == null || resp == null) return;
-        if (!byEducation[edu]) byEducation[edu] = { total: 0, responded: 0 };
-        byEducation[edu].total += 1;
-        if (resp === 1) byEducation[edu].responded += 1;
-    });
+    // 4. Categorical Variables vs Target (Training Data)
+    plotCategoricalVsTarget();
     
-    const eduData = Object.entries(byEducation).map(([edu, stats]) => ({
-        index: edu,
-        value: stats.total ? (stats.responded / stats.total) * 100 : 0
-    }));
+    // 5. Continuous Variables vs Target (Training Data)
+    plotContinuousVsTarget();
     
-    tfvis.render.barchart(
-        { name: 'Response Rate by Education', tab: 'EDA' },
-        eduData,
-        { xLabel: 'Education', yLabel: 'Response Rate (%)', height: 300 }
-    );
-    
-    // 3. Response by Marital Status
-    const byMarital = {};
-    trainData.forEach(row => {
-        const marital = row.Marital_Status;
-        const resp = row.Response;
-        if (marital == null || resp == null) return;
-        if (!byMarital[marital]) byMarital[marital] = { total: 0, responded: 0 };
-        byMarital[marital].total += 1;
-        if (resp === 1) byMarital[marital].responded += 1;
-    });
-    
-    const maritalData = Object.entries(byMarital).map(([marital, stats]) => ({
-        index: marital,
-        value: stats.total ? (stats.responded / stats.total) * 100 : 0
-    }));
-    
-    tfvis.render.barchart(
-        { name: 'Response Rate by Marital Status', tab: 'EDA' },
-        maritalData,
-        { xLabel: 'Marital Status', yLabel: 'Response Rate (%)', height: 300 }
-    );
-    
-    // 4. Income distribution
-    const incomeValues = trainData
-        .filter(r => r.Income != null && r.Income < 100000)
-        .map(r => r.Income);
-    
-    const incomeBins = createHistogram(incomeValues, 20);
-    tfvis.render.barchart(
-        { name: 'Income Distribution', tab: 'EDA' },
-        incomeBins,
-        { xLabel: 'Income', yLabel: 'Frequency', height: 300 }
-    );
-    
-    // 5. Age distribution (calculated from Year_Birth)
-    const currentYear = 2014; // Based on dataset context
-    const ageValues = trainData
-        .filter(r => r.Year_Birth != null && r.Year_Birth > 1920)
-        .map(r => currentYear - r.Year_Birth);
-    
-    const ageBins = createHistogram(ageValues, 15);
-    tfvis.render.barchart(
-        { name: 'Age Distribution', tab: 'EDA' },
-        ageBins,
-        { xLabel: 'Age', yLabel: 'Frequency', height: 300 }
-    );
+    // 6. Correlation Heatmap (Training Data - Numeric Features)
+    plotCorrelationHeatmap();
 }
 
-// Helper function to create histogram bins
-function createHistogram(values, numBins) {
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const binSize = (max - min) / numBins;
+// 1. Categorical Variables by Source
+function plotCategoricalBySource() {
+    const container = document.getElementById('plots-cat-by-source');
+    container.innerHTML = ''; // Clear existing content
     
-    const bins = Array(numBins).fill(0);
-    values.forEach(val => {
-        const binIndex = Math.min(Math.floor((val - min) / binSize), numBins - 1);
-        bins[binIndex]++;
+    CATEGORICAL_FEATURES.forEach(feature => {
+        // Count by source
+        const trainCounts = {};
+        const testCounts = {};
+        
+        trainData.forEach(row => {
+            const val = row[feature];
+            if (val != null) {
+                trainCounts[val] = (trainCounts[val] || 0) + 1;
+            }
+        });
+        
+        testData.forEach(row => {
+            const val = row[feature];
+            if (val != null) {
+                testCounts[val] = (testCounts[val] || 0) + 1;
+            }
+        });
+        
+        // Get all unique categories
+        const categories = [...new Set([...Object.keys(trainCounts), ...Object.keys(testCounts)])].sort();
+        
+        const trainValues = categories.map(cat => trainCounts[cat] || 0);
+        const testValues = categories.map(cat => testCounts[cat] || 0);
+        
+        // Create individual plot div for each chart
+        const plotDiv = document.createElement('div');
+        plotDiv.className = 'plot-container';
+        plotDiv.style.width = '100%';
+        plotDiv.style.height = '450px';
+        const uniqueId = `cat-by-source-${feature.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        plotDiv.id = uniqueId;
+        container.appendChild(plotDiv);
+        
+        // Plotly traces
+        const traces = [
+            {
+                x: categories,
+                y: trainValues,
+                name: 'Train',
+                type: 'bar',
+                marker: { color: '#667eea' }
+            },
+            {
+                x: categories,
+                y: testValues,
+                name: 'Test',
+                type: 'bar',
+                marker: { color: '#764ba2' }
+            }
+        ];
+        
+        const layout = {
+            title: {
+                text: `${feature} Distribution by Source`,
+                x: 0.5,
+                xanchor: 'center'
+            },
+            xaxis: { title: feature },
+            yaxis: { title: 'Count' },
+            barmode: 'group',
+            height: 400,
+            margin: { t: 60, b: 60, l: 60, r: 60 }
+        };
+        
+        const config = {
+            responsive: true,
+            displayModeBar: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: []
+        };
+        
+        Plotly.newPlot(uniqueId, traces, layout, config);
+    });
+}
+
+// 2. Continuous Variables Distribution by Source (Histograms)
+function plotContinuousHistogramsBySource() {
+    const container = document.getElementById('plots-cont-hist');
+    container.innerHTML = '';
+    
+    // Select key continuous features for visualization
+    const featuresForHist = ['Income', 'Year_Birth', 'Recency', 'MntWines', 'MntMeatProducts', 'NumWebPurchases'];
+    
+    featuresForHist.forEach(feature => {
+        // Get values by source
+        const trainValues = trainData
+            .filter(row => row[feature] != null)
+            .map(row => row[feature]);
+        
+        const testValues = testData
+            .filter(row => row[feature] != null)
+            .map(row => row[feature]);
+        
+        // Create individual plot div
+        const plotDiv = document.createElement('div');
+        plotDiv.className = 'plot-container';
+        plotDiv.style.width = '100%';
+        plotDiv.style.height = '450px';
+        const uniqueId = `cont-hist-${feature.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        plotDiv.id = uniqueId;
+        container.appendChild(plotDiv);
+        
+        // Plotly traces (overlaid histograms)
+        const traces = [
+            {
+                x: trainValues,
+                name: 'Train',
+                type: 'histogram',
+                opacity: 0.6,
+                marker: { color: '#667eea' },
+                nbinsx: 30
+            },
+            {
+                x: testValues,
+                name: 'Test',
+                type: 'histogram',
+                opacity: 0.6,
+                marker: { color: '#764ba2' },
+                nbinsx: 30
+            }
+        ];
+        
+        const layout = {
+            title: {
+                text: `${feature} Distribution by Source`,
+                x: 0.5,
+                xanchor: 'center'
+            },
+            xaxis: { title: feature },
+            yaxis: { title: 'Frequency' },
+            barmode: 'overlay',
+            height: 400,
+            margin: { t: 60, b: 60, l: 60, r: 60 }
+        };
+        
+        const config = {
+            responsive: true,
+            displayModeBar: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: []
+        };
+        
+        Plotly.newPlot(uniqueId, traces, layout, config);
+    });
+}
+
+// 3. Continuous Variables Boxplots (Training Data)
+function plotContinuousBoxplots() {
+    const container = document.getElementById('plots-cont-box');
+    container.innerHTML = '';
+    
+    const featuresForBox = ['Income', 'Year_Birth', 'Recency', 'MntWines', 'MntMeatProducts', 'NumWebPurchases'];
+    
+    featuresForBox.forEach(feature => {
+        const values = trainData
+            .filter(row => row[feature] != null)
+            .map(row => row[feature]);
+        
+        // Create individual plot div
+        const plotDiv = document.createElement('div');
+        plotDiv.className = 'plot-container';
+        plotDiv.style.width = '100%';
+        plotDiv.style.height = '450px';
+        const uniqueId = `cont-box-${feature.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        plotDiv.id = uniqueId;
+        container.appendChild(plotDiv);
+        
+        const trace = {
+            y: values,
+            type: 'box',
+            name: feature,
+            marker: { color: '#667eea' },
+            boxmean: 'sd'
+        };
+        
+        const layout = {
+            title: {
+                text: `${feature} Boxplot (Training Data)`,
+                x: 0.5,
+                xanchor: 'center'
+            },
+            yaxis: { title: feature },
+            height: 400,
+            margin: { t: 60, b: 60, l: 60, r: 60 }
+        };
+        
+        const config = {
+            responsive: true,
+            displayModeBar: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: []
+        };
+        
+        Plotly.newPlot(uniqueId, [trace], layout, config);
+    });
+}
+
+// 4. Categorical Variables vs Target (Training Data)
+function plotCategoricalVsTarget() {
+    const container = document.getElementById('plots-cat-vs-target');
+    container.innerHTML = '';
+    
+    CATEGORICAL_FEATURES.forEach(feature => {
+        // Calculate response rate by category
+        const stats = {};
+        
+        trainData.forEach(row => {
+            const cat = row[feature];
+            const resp = row[TARGET_FEATURE];
+            if (cat == null || resp == null) return;
+            
+            if (!stats[cat]) {
+                stats[cat] = { total: 0, responded: 0 };
+            }
+            stats[cat].total += 1;
+            if (resp === 1) {
+                stats[cat].responded += 1;
+            }
+        });
+        
+        const categories = Object.keys(stats).sort();
+        const responseCounts = categories.map(cat => stats[cat].responded);
+        const noResponseCounts = categories.map(cat => stats[cat].total - stats[cat].responded);
+        const responseRates = categories.map(cat => 
+            stats[cat].total > 0 ? (stats[cat].responded / stats[cat].total * 100).toFixed(2) : 0
+        );
+        
+        // Create individual plot div
+        const plotDiv = document.createElement('div');
+        plotDiv.className = 'plot-container';
+        plotDiv.style.width = '100%';
+        plotDiv.style.height = '450px';
+        const uniqueId = `cat-vs-target-${feature.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        plotDiv.id = uniqueId;
+        container.appendChild(plotDiv);
+        
+        // Stacked bar chart
+        const traces = [
+            {
+                x: categories,
+                y: noResponseCounts,
+                name: 'No Response (0)',
+                type: 'bar',
+                marker: { color: '#ff6b6b' }
+            },
+            {
+                x: categories,
+                y: responseCounts,
+                name: 'Response (1)',
+                type: 'bar',
+                marker: { color: '#4ecdc4' }
+            }
+        ];
+        
+        const layout = {
+            title: {
+                text: `${feature} vs Response (Training Data)`,
+                x: 0.5,
+                xanchor: 'center'
+            },
+            xaxis: { title: feature },
+            yaxis: { title: 'Count' },
+            barmode: 'stack',
+            height: 400,
+            margin: { t: 60, b: 60, l: 60, r: 60 },
+            annotations: categories.map((cat, i) => ({
+                x: cat,
+                y: stats[cat].total,
+                text: `${responseRates[i]}%`,
+                showarrow: false,
+                yshift: 10
+            }))
+        };
+        
+        const config = {
+            responsive: true,
+            displayModeBar: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: []
+        };
+        
+        Plotly.newPlot(uniqueId, traces, layout, config);
+    });
+}
+
+// 5. Continuous Variables vs Target (Training Data)
+function plotContinuousVsTarget() {
+    const container = document.getElementById('plots-cont-vs-target');
+    container.innerHTML = '';
+    
+    const featuresForTarget = ['Income', 'Year_Birth', 'Recency', 'MntWines', 'MntMeatProducts', 'NumWebPurchases'];
+    
+    featuresForTarget.forEach(feature => {
+        // Separate values by target
+        const noResponseValues = trainData
+            .filter(row => row[TARGET_FEATURE] === 0 && row[feature] != null)
+            .map(row => row[feature]);
+        
+        const responseValues = trainData
+            .filter(row => row[TARGET_FEATURE] === 1 && row[feature] != null)
+            .map(row => row[feature]);
+        
+        // Create individual plot div
+        const plotDiv = document.createElement('div');
+        plotDiv.className = 'plot-container';
+        plotDiv.style.width = '100%';
+        plotDiv.style.height = '450px';
+        const uniqueId = `cont-vs-target-${feature.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        plotDiv.id = uniqueId;
+        container.appendChild(plotDiv);
+        
+        // Overlaid histograms
+        const traces = [
+            {
+                x: noResponseValues,
+                name: 'No Response (0)',
+                type: 'histogram',
+                opacity: 0.6,
+                marker: { color: '#ff6b6b' },
+                nbinsx: 30
+            },
+            {
+                x: responseValues,
+                name: 'Response (1)',
+                type: 'histogram',
+                opacity: 0.6,
+                marker: { color: '#4ecdc4' },
+                nbinsx: 30
+            }
+        ];
+        
+        const layout = {
+            title: {
+                text: `${feature} Distribution by Response (Training Data)`,
+                x: 0.5,
+                xanchor: 'center'
+            },
+            xaxis: { title: feature },
+            yaxis: { title: 'Frequency' },
+            barmode: 'overlay',
+            height: 400,
+            margin: { t: 60, b: 60, l: 60, r: 60 }
+        };
+        
+        const config = {
+            responsive: true,
+            displayModeBar: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: []
+        };
+        
+        Plotly.newPlot(uniqueId, traces, layout, config);
+    });
+}
+
+// 6. Correlation Heatmap (Training Data - Numeric Features)
+function plotCorrelationHeatmap() {
+    const container = document.getElementById('plots-corr');
+    container.innerHTML = '';
+    
+    // Select numeric features for correlation
+    const numericFeatures = [...NUMERICAL_FEATURES, TARGET_FEATURE];
+    
+    // Calculate correlation matrix
+    const correlationMatrix = calculateCorrelationMatrix(trainData, numericFeatures);
+    
+    const plotDiv = document.createElement('div');
+    plotDiv.className = 'plot-container';
+    plotDiv.style.width = '100%';
+    plotDiv.style.height = '850px';
+    plotDiv.id = 'corr-heatmap';
+    container.appendChild(plotDiv);
+    
+    const trace = {
+        z: correlationMatrix.values,
+        x: correlationMatrix.features,
+        y: correlationMatrix.features,
+        type: 'heatmap',
+        colorscale: 'RdBu',
+        zmid: 0,
+        text: correlationMatrix.values.map(row => 
+            row.map(val => val.toFixed(2))
+        ),
+        texttemplate: '%{text}',
+        textfont: { size: 10 },
+        colorbar: { title: 'Correlation' }
+    };
+    
+    const layout = {
+        title: {
+            text: 'Correlation Heatmap (Training Data - Numeric Features)',
+            x: 0.5,
+            xanchor: 'center'
+        },
+        xaxis: { title: '', tickangle: -45 },
+        yaxis: { title: '' },
+        height: 800,
+        margin: { t: 100, b: 150, l: 150, r: 60 }
+    };
+    
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false,
+        modeBarButtonsToRemove: []
+    };
+    
+    Plotly.newPlot('corr-heatmap', [trace], layout, config);
+}
+
+// Helper: Calculate correlation matrix
+function calculateCorrelationMatrix(data, features) {
+    const n = features.length;
+    const matrix = Array(n).fill(0).map(() => Array(n).fill(0));
+    
+    // Get valid data for each feature
+    const featureData = {};
+    features.forEach(feature => {
+        featureData[feature] = data
+            .filter(row => row[feature] != null)
+            .map(row => row[feature]);
     });
     
-    return bins.map((count, i) => ({
-        index: `${(min + i * binSize).toFixed(0)}-${(min + (i + 1) * binSize).toFixed(0)}`,
-        value: count
-    }));
+    // Calculate pairwise correlations
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+            if (i === j) {
+                matrix[i][j] = 1.0;
+            } else {
+                const feat1 = features[i];
+                const feat2 = features[j];
+                
+                // Find common valid indices
+                const pairs = [];
+                data.forEach(row => {
+                    if (row[feat1] != null && row[feat2] != null) {
+                        pairs.push([row[feat1], row[feat2]]);
+                    }
+                });
+                
+                if (pairs.length > 1) {
+                    matrix[i][j] = pearsonCorrelation(
+                        pairs.map(p => p[0]),
+                        pairs.map(p => p[1])
+                    );
+                } else {
+                    matrix[i][j] = 0;
+                }
+            }
+        }
+    }
+    
+    return {
+        features: features,
+        values: matrix
+    };
+}
+
+// Helper: Pearson correlation
+function pearsonCorrelation(x, y) {
+    const n = x.length;
+    if (n === 0) return 0;
+    
+    const meanX = x.reduce((a, b) => a + b, 0) / n;
+    const meanY = y.reduce((a, b) => a + b, 0) / n;
+    
+    let numerator = 0;
+    let denomX = 0;
+    let denomY = 0;
+    
+    for (let i = 0; i < n; i++) {
+        const dx = x[i] - meanX;
+        const dy = y[i] - meanY;
+        numerator += dx * dy;
+        denomX += dx * dx;
+        denomY += dy * dy;
+    }
+    
+    if (denomX === 0 || denomY === 0) return 0;
+    
+    return numerator / Math.sqrt(denomX * denomY);
 }
 
 // ========================================
-// PREPROCESSING
+// PREPROCESSING (ORIGINAL FROM UPLOADED FILE)
 // ========================================
 
 function preprocessData() {
@@ -534,7 +943,7 @@ function applyOversampling(features, labels) {
 }
 
 // ========================================
-// MODEL CREATION
+// MODEL CREATION (ORIGINAL)
 // ========================================
 
 function createModel() {
@@ -606,7 +1015,7 @@ function createModel() {
 }
 
 // ========================================
-// MODEL TRAINING
+// MODEL TRAINING (ORIGINAL)
 // ========================================
 
 async function trainModel() {
@@ -756,7 +1165,7 @@ function stratifiedSplit(features, labels, testSize) {
 }
 
 // ========================================
-// METRICS EVALUATION
+// METRICS EVALUATION (ORIGINAL)
 // ========================================
 
 async function updateMetrics() {
@@ -864,7 +1273,7 @@ async function plotROC(predictions, trueLabels) {
 }
 
 // ========================================
-// PREDICTION
+// PREDICTION (ORIGINAL)
 // ========================================
 
 async function predict() {
@@ -939,7 +1348,7 @@ function createPredictionTable(data) {
 }
 
 // ========================================
-// EXPORT RESULTS
+// EXPORT RESULTS (ORIGINAL)
 // ========================================
 
 async function exportResults() {
@@ -1000,7 +1409,7 @@ async function exportResults() {
 }
 
 // ========================================
-// GROUND TRUTH CHECK
+// GROUND TRUTH CHECK (ORIGINAL)
 // ========================================
 
 async function checkGroundTruth() {
