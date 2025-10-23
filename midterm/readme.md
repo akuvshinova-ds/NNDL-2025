@@ -7,20 +7,7 @@ Task: take csv files (superstore_test_unlabeled - with no target var, superstore
 
 Overall workflow:
 0. In index.html: Layout sections: Data Load, Exploratory Data Analysis, Preprocessing, Model definition, Training, Metrics of training (ROC-AUC), Prediction, Export, Ground-Truth Check. In the end, Include deployment note text: 'Create public GitHub repo, commit index.html/app.js, enable Pages (main/root), test URL.'
-1. Data Load: Input 2 datasets (train and test_unlabeled) by a click of a button. Show data shapes. Preview first 10 rows of each dataset. On backend, concatenate training and unlabeled test data for exploratory analysis, adding the source column (train, test). In css, for table fitting the screen implement ```/* 1. Sets the boundaries for the scrollbar to appear */
-.table-scroll {
-overflow-x: auto; /* The critical property for horizontal scrolling */
-width: 100%; /* Constrains the container to the page width */
-margin-top: 10px;
-margin-bottom: 10px;
-}
-
-/* 2. Allows the table to be as wide as its content */
-table {
-width: max-content; /* Allows the table content to flow outside the 100% container */
-border-collapse: collapse;
-margin-top: 15px;
-}```
+1. Data Load: Input 2 datasets (train and test_unlabeled) by a click of a button. Show data shapes. Preview first 10 rows of each dataset. On backend, concatenate training and unlabeled test data for exploratory analysis, adding the source column (train, test). In css, for table fitting the screen implement table-scroll
 2. Exploratory Data Analysis: Show all graphs that are in EDA files.
 3. Preprocessing: comment on drop_useless_features, remove_extreme_outliers,preprocessing transformers (StandardScaler, OneHotEncoder,SimpleImputer,using RandomOverSampler on the training data). 
 4. Model in app.js: tf.sequential: Dense(256, 'relu'), BatchNormalization(), Dropout(0.1), Dense(128, 'relu'), BatchNormalization(), Dropout(0.1), Dense(2, 'softmax'). Compile optimizer=Adam(learningRate=0.002714707), loss='categoricalCrossentropy' (labelSmoothing=0.02), metrics=['categoricalAccuracy','AUC']. Print description of the model.
